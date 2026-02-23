@@ -15,7 +15,6 @@ aggregated as (
         min(created_on) as earliest_document,
         max(modified_on) as latest_modified,
         current_timestamp() as _aggregated_at
-    
     from documents
     group by document_type
 )
