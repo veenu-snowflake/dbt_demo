@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  # Raw layer tests
+  - name: raw_postgres__country
+    description: "Raw country data from PostgreSQL"
+    columns:
+      - name: country_id
+        description: "Country identifier"
+        tests:
+          - not_null
+      - name: country
+        description: "Country name"
+        tests:
+          - not_null
+
+  - name: raw_postgres__customer_loyalty
+    description: "Raw customer loyalty data from PostgreSQL"
+    columns:
+      - name: customer_id
+        description: "Customer identifier"
+        tests:
+          - not_null
+
+  - name: raw_sharepoint__documents
+    description: "Raw document metadata from SharePoint"
+    columns:
+      - name: doc_id
+        description: "Document identifier"
+        tests:
+          - unique
+          - not_null
+
+  # Intermediate layer tests
+  - name: int_sharepoint__documents
+    description: "Cleaned and enriched document data"
+    columns:
+      - name: doc_id
+        description: "Document identifier"
+        tests:
+          - unique
+          - not_null
+      - name: document_type
+        description: "Categorized document type"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['PDF', 'Word Document', 'Excel', 'PowerPoint', 'Other']
+      - name: file_size
+        description: "File size in bytes"
+        tests:
+          - not_null
+      - name: file_size_kb
+        description: "File size in KB"
+        tests:
+          - not_null
+
+  # Reporting layer tests
+  - name: rpt_document_summary
+    description: "Aggregated document statistics by type"
+    columns:
+      - name: document_type
+        description: "Document type category"
+        tests:
+          - unique
+          - not_null
+      - name: total_documents
+        description: "Count of documents"
+        tests:
+          - not_null
+      - name: total_size_bytes
+        description: "Total size in bytes"
+        tests:
+          - not_null

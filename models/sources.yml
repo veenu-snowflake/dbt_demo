@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  # PostgreSQL data loaded by OpenFlow
+  - name: postgres_replica
+    database: POSTGRES_REPLICA
+    schema: TASTYBYTES
+    tables:
+      - name: country
+        description: "Country reference data from PostgreSQL"
+      - name: customer_loyalty
+        description: "Customer loyalty data from PostgreSQL"
+
+  # SharePoint data loaded by OpenFlow
+  - name: sharepoint_replica
+    database: SHAREPOINT_REPLICA
+    schema: PUBLIC
+    tables:
+      - name: doc_metadata
+        description: "Document metadata from SharePoint"

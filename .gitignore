@@ -1,0 +1,28 @@
+# dbt artifacts
+target/
+dbt_packages/
+dbt_modules/
+logs/
+
+# Environment
+.env
+.env.local
+
+# Credentials - NEVER commit these
+profiles.yml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Compiled files
+*.pyc

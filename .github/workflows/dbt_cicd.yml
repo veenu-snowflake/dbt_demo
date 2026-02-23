@@ -1,0 +1,202 @@
+# CI/CD Pipeline for dbt on Snowflake
+# Triggers on push to main and pull requests
+
+name: dbt CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DBT_PROJECT_NAME: openflow_analytics
+  SNOWFLAKE_DATABASE: POSTGRES_REPLICA
+  SNOWFLAKE_SCHEMA: DBT_PROJECTS
+
+jobs:
+  # ============================================
+  # JOB 1: Lint and Validate
+  # ============================================
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SQLFluff
+        run: pip install sqlfluff sqlfluff-templater-dbt
+
+      - name: Lint SQL files
+        run: |
+          sqlfluff lint models/ --dialect snowflake || true
+        continue-on-error: true  # Don't fail on lint warnings initially
+
+  # ============================================
+  # JOB 2: dbt Compile (Validate SQL)
+  # ============================================
+  compile:
+    name: dbt Compile
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Snowflake CLI
+        run: pip install snowflake-cli-labs
+
+      - name: Create profiles.yml for CI
+        run: |
+          cat << EOF > profiles.yml
+          snowflake:
+            target: ci
+            outputs:
+              ci:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: ${{ env.SNOWFLAKE_DATABASE }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                schema: ${{ env.SNOWFLAKE_SCHEMA }}
+                threads: 4
+          EOF
+
+      - name: Compile dbt project
+        run: |
+          snow dbt deploy ${{ env.DBT_PROJECT_NAME }} \
+            --source . \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_CI \
+            --force
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+
+  # ============================================
+  # JOB 3: dbt Test (on PR to main)
+  # ============================================
+  test:
+    name: dbt Run & Test
+    runs-on: ubuntu-latest
+    needs: compile
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Snowflake CLI
+        run: pip install snowflake-cli-labs
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat << EOF > ~/.snowflake/connections.toml
+          [ci-connection]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          password = "${{ secrets.SNOWFLAKE_PASSWORD }}"
+          role = "${{ secrets.SNOWFLAKE_ROLE }}"
+          warehouse = "${{ secrets.SNOWFLAKE_WAREHOUSE }}"
+          database = "${{ env.SNOWFLAKE_DATABASE }}"
+          schema = "${{ env.SNOWFLAKE_SCHEMA }}_CI"
+          EOF
+
+      - name: Run dbt models
+        run: |
+          snow dbt execute \
+            --connection ci-connection \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_CI \
+            ${{ env.DBT_PROJECT_NAME }} run
+
+      - name: Run dbt tests
+        run: |
+          snow dbt execute \
+            --connection ci-connection \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_CI \
+            ${{ env.DBT_PROJECT_NAME }} test
+
+  # ============================================
+  # JOB 4: Deploy to Production (on push to main)
+  # ============================================
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: compile
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production  # Requires manual approval in GitHub
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Snowflake CLI
+        run: pip install snowflake-cli-labs
+
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat << EOF > ~/.snowflake/connections.toml
+          [prod-connection]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          password = "${{ secrets.SNOWFLAKE_PASSWORD }}"
+          role = "${{ secrets.SNOWFLAKE_ROLE }}"
+          warehouse = "${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          database = "${{ env.SNOWFLAKE_DATABASE }}"
+          schema = "${{ env.SNOWFLAKE_SCHEMA }}_PROD"
+          EOF
+
+      - name: Deploy to Production
+        run: |
+          snow dbt deploy ${{ env.DBT_PROJECT_NAME }} \
+            --source . \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_PROD \
+            --connection prod-connection \
+            --force
+
+      - name: Run dbt models in Production
+        run: |
+          snow dbt execute \
+            --connection prod-connection \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_PROD \
+            ${{ env.DBT_PROJECT_NAME }} run
+
+      - name: Run dbt tests in Production
+        run: |
+          snow dbt execute \
+            --connection prod-connection \
+            --database ${{ env.SNOWFLAKE_DATABASE }} \
+            --schema ${{ env.SNOWFLAKE_SCHEMA }}_PROD \
+            ${{ env.DBT_PROJECT_NAME }} test

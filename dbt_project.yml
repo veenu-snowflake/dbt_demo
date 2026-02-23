@@ -1,0 +1,31 @@
+name: 'openflow_analytics'
+version: '1.0.0'
+
+# This tells dbt which database profile to use
+profile: 'snowflake'
+
+# Where to look for models, tests, etc.
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+# How to materialize models by default
+models:
+  openflow_analytics:
+    # Raw layer: cleaned source data
+    raw:
+      +materialized: view
+      +schema: raw
+    # Intermediate layer: business logic transforms
+    int:
+      +materialized: view
+      +schema: int
+    # Primary layer: core entities
+    primary:
+      +materialized: table
+      +schema: primary
+    # Reporting layer: final analytics tables
+    reporting:
+      +materialized: table
+      +schema: reporting

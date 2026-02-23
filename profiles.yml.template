@@ -1,0 +1,40 @@
+# Template profiles.yml for local development
+# Copy this file to profiles.yml and fill in your credentials
+# NEVER commit profiles.yml with real credentials!
+
+snowflake:
+  target: dev  # Default target: dev, qa, or prod
+  
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: ACCOUNTADMIN
+      database: POSTGRES_REPLICA
+      warehouse: SNOWFLAKE_LEARNING_WH
+      schema: DBT_PROJECTS
+      threads: 4
+
+    qa:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: ACCOUNTADMIN
+      database: POSTGRES_REPLICA
+      warehouse: SNOWFLAKE_LEARNING_WH
+      schema: DBT_PROJECTS_QA
+      threads: 4
+
+    prod:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: ACCOUNTADMIN
+      database: POSTGRES_REPLICA
+      warehouse: SNOWFLAKE_LEARNING_WH
+      schema: DBT_PROJECTS_PROD
+      threads: 4
