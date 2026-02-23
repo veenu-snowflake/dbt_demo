@@ -1,0 +1,112 @@
+# CI/CD Pipeline - Lint Only (No Snowflake Connection Required)
+# This pipeline validates SQL syntax without connecting to Snowflake
+
+name: dbt Lint Only
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint SQL
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SQLFluff
+        run: pip install sqlfluff sqlfluff-templater-dbt dbt-core dbt-snowflake
+
+      - name: Show project structure
+        run: |
+          echo "📁 Project Structure:"
+          find . -name "*.sql" -o -name "*.yml" | grep -v ".git" | sort
+
+      - name: Lint SQL files
+        run: |
+          echo "🔍 Linting SQL files..."
+          sqlfluff lint models/ --dialect snowflake --format human
+        continue-on-error: true
+
+      - name: Check YAML syntax
+        run: |
+          echo "🔍 Checking YAML files..."
+          python -c "
+          import yaml
+          import glob
+          import sys
+          
+          errors = []
+          for f in glob.glob('**/*.yml', recursive=True):
+              if '.git' in f:
+                  continue
+              try:
+                  with open(f) as file:
+                      yaml.safe_load(file)
+                  print(f'✅ {f}')
+              except Exception as e:
+                  print(f'❌ {f}: {e}')
+                  errors.append(f)
+          
+          if errors:
+              sys.exit(1)
+          print('\\n✅ All YAML files are valid!')
+          "
+
+      - name: Validate dbt project structure
+        run: |
+          echo "🔍 Validating dbt project structure..."
+          
+          # Check required files exist
+          if [ -f "dbt_project.yml" ]; then
+            echo "✅ dbt_project.yml exists"
+          else
+            echo "❌ dbt_project.yml missing"
+            exit 1
+          fi
+          
+          # Check models folder exists
+          if [ -d "models" ]; then
+            echo "✅ models/ folder exists"
+          else
+            echo "❌ models/ folder missing"
+            exit 1
+          fi
+          
+          # Count SQL files
+          SQL_COUNT=$(find models/ -name "*.sql" | wc -l)
+          echo "📊 Found $SQL_COUNT SQL model files"
+          
+          # Count test files
+          if [ -d "tests" ]; then
+            TEST_COUNT=$(find tests/ -name "*.sql" | wc -l)
+            echo "📊 Found $TEST_COUNT singular test files"
+          fi
+          
+          echo ""
+          echo "✅ Project structure is valid!"
+
+      - name: Summary
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "           LINT SUMMARY                   "
+          echo "=========================================="
+          echo ""
+          echo "✅ SQL syntax checked"
+          echo "✅ YAML files validated"
+          echo "✅ Project structure verified"
+          echo ""
+          echo "Note: This pipeline only validates syntax."
+          echo "To run against Snowflake, use a self-hosted"
+          echo "runner with a whitelisted IP address."
+          echo "=========================================="
