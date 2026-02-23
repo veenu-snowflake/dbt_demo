@@ -96,3 +96,6 @@ Run all tests:
 ```bash
 snow dbt execute --connection your-connection --database POSTGRES_REPLICA --schema DBT_PROJECTS openflow_analytics test
 ```
+
+## Version
+v1.0.0
