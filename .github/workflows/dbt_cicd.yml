@@ -72,6 +72,7 @@ jobs:
           database = "${{ env.SNOWFLAKE_DATABASE }}"
           schema = "${{ env.SNOWFLAKE_SCHEMA }}"
           EOF
+          chmod 0600 ~/.snowflake/connections.toml
 
       - name: Create profiles.yml for CI
         run: |
@@ -151,6 +152,7 @@ jobs:
           database = "${{ env.SNOWFLAKE_DATABASE }}"
           schema = "${{ env.SNOWFLAKE_SCHEMA }}_PROD"
           EOF
+          chmod 0600 ~/.snowflake/connections.toml
 
       - name: Create profiles.yml
         run: |
