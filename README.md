@@ -99,3 +99,4 @@ snow dbt execute --connection your-connection --database POSTGRES_REPLICA --sche
 
 ## Version
 v1.0.0
+# Trigger rebuild
